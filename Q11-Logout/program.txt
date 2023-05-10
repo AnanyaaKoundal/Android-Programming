@@ -1,0 +1,317 @@
+activity_main.xml
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout 
+xmlns:android="http://schemas.android.com/apk/res/android"
+ xmlns:app="http://schemas.android.com/apk/res-auto"
+ xmlns:tools="http://schemas.android.com/tools"
+ android:layout_width="match_parent"
+ android:layout_height="match_parent"
+ tools:context=".MainActivity">
+ <EditText
+ android:id="@+id/etEmail"
+ android:layout_width="wrap_content"
+ android:layout_height="wrap_content"
+ android:layout_marginTop="240dp"
+ android:autofillHints="false"
+ android:ems="10"
+ android:hint="@string/e_mail_id"
+ android:inputType="textEmailAddress"
+ app:layout_constraintBottom_toTopOf="@id/etPassword"
+ app:layout_constraintEnd_toEndOf="parent"
+ app:layout_constraintStart_toStartOf="parent"
+ app:layout_constraintTop_toTopOf="parent" />
+ <EditText
+ android:id="@+id/etPassword"
+ android:layout_width="wrap_content"
+ android:layout_height="wrap_content"
+ android:layout_marginTop="10dp"
+ android:autofillHints="false"
+ android:ems="10"
+ android:hint="@string/password"
+ android:inputType="textPassword"
+ app:layout_constraintBottom_toTopOf="@id/btnLogin"
+ app:layout_constraintEnd_toEndOf="parent"
+ app:layout_constraintStart_toStartOf="parent"
+ app:layout_constraintTop_toBottomOf="@id/etEmail" />
+ <Button
+ android:id="@+id/btnLogin"
+ android:layout_width="wrap_content"
+ android:layout_height="wrap_content"
+ android:layout_marginTop="30dp"
+ android:text="@string/login"
+ app:layout_constraintBottom_toTopOf="@id/btnRegister"
+ app:layout_constraintEnd_toEndOf="parent"
+ app:layout_constraintStart_toStartOf="parent"
+ app:layout_constraintTop_toBottomOf="@id/etPassword" />
+ <Button
+ android:id="@+id/btnRegister"
+ android:layout_width="wrap_content"
+ android:layout_height="wrap_content"
+ android:layout_marginBottom="250dp"
+ android:text="@string/register"
+ app:layout_constraintBottom_toBottomOf="parent"
+ app:layout_constraintEnd_toEndOf="parent"
+ app:layout_constraintStart_toStartOf="parent"
+ app:layout_constraintTop_toBottomOf="@id/btnLogin" />
+</androidx.constraintlayout.widget.ConstraintLayout>
+res/values/strings.xml
+<resources>
+ <string name="app_name">Practical 11</string>
+ <string name="welcome">Welcome</string>
+ <string name="log_out">Log Out</string>
+ <string name="password">Password</string>
+ <string name="e_mail_id">E-mail ID</string>
+ <string name="login">Login</string>
+ <string name="register">Register</string>
+ <string name="cancel">Cancel</string>
+ <string name="ok">Ok</string>
+</resources>
+MainActivity.java
+package com.example.practical_11;
+import android.content.Intent;
+import android.database.sqlite.SQLiteConstraintException;
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import com.example.practical_11.models.User;
+import com.example.practical_11.services.UserService;
+public class MainActivity extends AppCompatActivity {
+ private EditText etEmail;
+ private EditText etPassword;
+ private Button btnLogin;
+ private Button btnRegister;
+ private UserService userService;
+ @Override
+ protected void onCreate(Bundle savedInstanceState) {
+ super.onCreate(savedInstanceState);
+ setContentView(R.layout.activity_main);
+ userService = UserService.getInstance();
+ UserService.initDatabase(this);
+ etEmail = (EditText) findViewById(R.id.etEmail);
+ etPassword = (EditText) findViewById(R.id.etPassword);
+ btnLogin = (Button) findViewById(R.id.btnLogin);
+ btnRegister = (Button) findViewById(R.id.btnRegister);
+ btnLogin.setOnClickListener(v -> {
+ User user = validateCredentials();
+ if (user != null){
+ try {
+ userService.login(user);
+ Toast.makeText(this, "Logged In", 
+Toast.LENGTH_SHORT).show();
+ startActivity(new Intent(this, MemberModule.class));
+ } catch (IllegalStateException illegalStateException) { 
+Toast.makeText(this,
+ "Invalid E- mail/Password", 
+Toast.LENGTH_SHORT).show();
+ } catch (Exception e) {
+ Log.d("TAG", e.getMessage());
+ Toast.makeText(this, "Error", 
+Toast.LENGTH_SHORT).show();}
+ }
+ }); btnRegister.setOnClickListener(v -> { User
+ user = validateCredentials(); if (user !=
+ null) {
+ try {
+ userService.register(user);
+ Toast.makeText(this, "Registered", 
+Toast.LENGTH_SHORT).show();
+ startActivity(new Intent(this, MemberModule.class));
+ } catch (SQLiteConstraintException sqLiteConstraintException)
+ {
+ Toast.makeText(this, "E-mail Already Used",
+ Toast.LENGTH_SHORT).show();
+ } catch (Exception e) {
+ Toast.makeText(this, "Error", Toast.LENGTH_SHORT).show();
+ }
+ }
+ });
+ }
+ private User validateCredentials() {
+ String email = etEmail.getText().toString().trim();
+ String password = etPassword.getText().toString().trim();
+ if (email.length() == 0) {
+ etEmail.setError("Enter your e-mail address");
+ return null;
+ }
+ if (password.length() == 0) {
+ etPassword.setError("Enter your password");
+ return null;
+ }
+ return new User(email, password);
+ }
+}
+com/example/practical_11/models/User.java
+package com.example.practical_11.models;
+import androidx.annotation.NonNull;
+import androidx.room.ColumnInfo;
+import androidx.room.Entity;
+import androidx.room.PrimaryKey;
+@Entity
+public class User {
+ @PrimaryKey
+ @NonNull
+ @ColumnInfo(name = "email")
+ public String email;
+ @NonNull
+ @ColumnInfo(name = "password")
+ public String password;
+ public User(@NonNull String email, @NonNull String password) {
+ this.email = email;
+ this.password = password;
+ }
+}
+com/example/practical_11/data/UserDao.java
+package com.example.practical_11.data;
+import androidx.room.Dao;
+import androidx.room.Delete;
+import androidx.room.Insert;
+import androidx.room.Query;
+import java.util.List;
+import com.example.practical_11.models.User;
+@Dao
+public interface UserDao {
+ @Query("SELECT * FROM user")
+ List<User> getAll();
+ @Query("SELECT * FROM user WHERE email LIKE :email LIMIT 1")
+ User findByEmail(String email);
+ @Insert
+ void insert(User user);
+ @Delete
+ void delete(User user);
+}
+com/example/practical10/data/UserDatabase.java
+package com.example.practical_11.data;
+import androidx.room.RoomDatabase;
+import androidx.room.Database;
+import com.example.practical_11.models.User;
+@Database(entities = {User.class}, version = 1)
+public abstract class UserDatabase extends RoomDatabase {
+ public abstract UserDao userDao();
+}
+com/example/practical_11/services/UserService.java
+package com.example.practical_11.services;
+import android.content.Context;
+import androidx.room.Room;
+import com.example.practical_11.data.UserDatabase;
+import com.example.practical_11.models.User;
+public class UserService {
+ private User user = null;
+ private static UserService instance = null;
+ private static UserDatabase database = null;
+ public void login(User user) throws IllegalStateException {
+ User u = database.userDao().findByEmail(user.email);
+ if (!u.password.equals(user.password))
+ throw new IllegalStateException("Password Mismatch");
+ this.user = user;
+ }
+ public void register(User user) {
+ database.userDao().insert(user);
+ this.user = user;
+ }
+ public void logout() {
+ this.user = null;
+ }
+ public User getUser() {
+ return user;
+ }
+ public static UserService getInstance() {
+ if (instance == null) {
+ instance = new UserService();
+ }
+ return instance;
+ }
+ public static void initDatabase(Context ctx) {
+ if (database == null) {
+ database = Room
+ .databaseBuilder(ctx, UserDatabase.class, 
+"login_module")
+ .allowMainThreadQueries()
+.build();
+ }
+ }
+}
+MemberModule.java
+package com.example.practical_11;
+import android.app.AlertDialog;
+import android.os.Bundle;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import com.example.practical_11.models.User;
+import com.example.practical_11.services.UserService;
+public class MemberModule extends AppCompatActivity {
+ private User user;
+ private UserService userService;
+ private TextView tvEmail;
+ private TextView btnLogout;
+ @Override
+ protected void onCreate(Bundle savedInstanceState) {
+ super.onCreate(savedInstanceState);
+ setContentView(R.layout.activity_member_module);
+ userService = UserService.getInstance();
+ user = userService.getUser();
+ tvEmail = (TextView) findViewById(R.id.tvEmail);
+ btnLogout = (TextView) findViewById(R.id.btnLogout);
+ if (user == null) {
+ super.finish();
+ } else {
+ tvEmail.setText(user.email);
+ }
+ btnLogout.setOnClickListener(v -> {
+ new AlertDialog.Builder(this)
+ .setTitle("Logout")
+.setMessage("Are you sure you want to log out?")
+.setPositiveButton(android.R.string.ok,
+ (dialog, which)-> 
+logoutUser()).setNegativeButton(android.R.string.cancel, null)
+ .setIcon(android.R.drawable.ic_dialog_alert)
+ .show();
+ });
+ }
+ private void logoutUser() {
+ userService.logout();
+ Toast.makeText(this, "Logged Out", Toast.LENGTH_SHORT).show();
+ super.finish();
+ }
+}
+activity_member_module.xml
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout 
+xmlns:android="http://schemas.android.com/apk/res/android"
+ xmlns:app="http://schemas.android.com/apk/res-auto"
+ xmlns:tools="http://schemas.android.com/tools"
+ android:layout_width="match_parent"
+ android:layout_height="match_parent"
+ tools:context=".MemberModule">
+ <TextView
+ android:id="@+id/tvWelcome"
+ android:layout_width="wrap_content"
+ android:layout_height="wrap_content"
+ android:text="@string/welcome"
+ android:textAppearance="@style/TextAppearance.AppCompat.Display1"
+ app:layout_constraintBottom_toTopOf="@id/tvEmail"
+ app:layout_constraintEnd_toEndOf="parent"
+ app:layout_constraintStart_toStartOf="parent"
+ app:layout_constraintTop_toTopOf="parent" />
+ <TextView
+ android:id="@+id/tvEmail"
+ android:layout_width="wrap_content"
+ android:layout_height="wrap_content"
+ android:text=""
+ app:layout_constraintBottom_toTopOf="@id/btnLogout"
+ app:layout_constraintEnd_toEndOf="parent"
+ app:layout_constraintStart_toStartOf="parent"
+ app:layout_constraintTop_toBottomOf="@id/tvWelcome" />
+ <Button
+ android:id="@+id/btnLogout"
+ android:layout_width="wrap_content"
+ android:layout_height="wrap_content"
+ android:text="@string/log_out"
+ app:layout_constraintBottom_toBottomOf="parent"
+ app:layout_constraintEnd_toEndOf="parent"
+ app:layout_constraintStart_toStartOf="parent"
+ app:layout_constraintTop_toBottomOf="@+id/tvEmail" />
+</androidx.constraintlayout.widget.ConstraintLayout>
